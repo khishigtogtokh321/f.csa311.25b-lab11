@@ -34,7 +34,7 @@ class App extends React.Component<Props, GameState> {
     /**
      * state has type GameState as specified in the class inheritance.
      */
-    this.state = { cells: [] }
+    this.state = { cells: [], winner: null, turn: null, draw: false, winningLine: null }
   }
 
   /**
@@ -45,7 +45,8 @@ class App extends React.Component<Props, GameState> {
   newGame = async () => {
     const response = await fetch('/newgame');
     const json = await response.json();
-    this.setState({ cells: json['cells'] });
+    this.setState({ cells: json['cells'], winner: json['winner'], turn: json['turn'], draw: json['draw'], winningLine: json['winningLine'] });
+
   }
 
   /**
@@ -61,8 +62,22 @@ class App extends React.Component<Props, GameState> {
       e.preventDefault();
       const response = await fetch(`/play?x=${x}&y=${y}`)
       const json = await response.json();
-      this.setState({ cells: json['cells'] });
+      this.setState({ cells: json['cells'], winner: json['winner'], turn: json['turn'], draw: json['draw'], winningLine: json['winningLine'] });
+
+      // Auto restart if game is finished
+      if (json['winner'] || json['draw']) {
+        setTimeout(() => {
+          this.newGame();
+        }, 3000); // 3 second delay to show the result
+      }
     }
+  }
+
+  undo = async () => {
+    const response = await fetch('/undo');
+    const json = await response.json();
+    this.setState({ cells: json['cells'], winner: json['winner'], turn: json['turn'], draw: json['draw'], winningLine: json['winningLine'] });
+
   }
 
   createCell(cell: Cell, index: number): React.ReactNode {
@@ -108,20 +123,105 @@ class App extends React.Component<Props, GameState> {
    * @see https://reactjs.org/docs/react-component.html
    */
   render(): React.ReactNode {
-    /**
-     * We use JSX to define the template. An advantage of JSX is that you
-     * can treat HTML elements as code.
-     * @see https://reactjs.org/docs/introducing-jsx.html
-     */
+    const { winner, draw, turn } = this.state;
+
+    // Determine instruction class
+    const instrClass = winner ? 'winner'
+      : draw ? 'draw'
+        : turn === 'X' ? 'x-turn' : 'o-turn';
+
+    // Instruction message
+    const message = winner
+      ? `🏆 Тоглогч ${winner} хожлоо!`
+      : draw
+        ? '🤝 Тэнцлээ! Дахин эхлэнэ үү'
+        : `Тоглогч ${turn}-ийн ээлж`;
+
     return (
-      <div>
-        <div id="board">
-          {this.state.cells.map((cell, i) => this.createCell(cell, i))}
+      <div className="game-container">
+        {/* Player Header */}
+        <div className="player-header">
+          {/* O Player */}
+          <div className="player-card">
+            <div className="player-avatar o-player">O</div>
+            <span className="player-label">Тоглогч 1</span>
+          </div>
+
+          {/* VS + Score dots */}
+          <div className="vs-section">
+            <span className="vs-text">VS</span>
+            <div className="score-dots">
+              <div className="score-dot"></div>
+              <div className="score-dot active"></div>
+              <div className="score-dot active"></div>
+            </div>
+          </div>
+
+          {/* X Player */}
+          <div className="player-card">
+            <div className="player-avatar x-player">X</div>
+            <span className="player-label">Тоглогч 2</span>
+          </div>
         </div>
+
+        {/* Status / Instructions */}
+        <div id="instructions" className={instrClass}>
+          {message}
+        </div>
+
+        {/* Board + SVG winning line overlay */}
+        <div id="board" style={{ position: 'relative' }}>
+          {this.state.cells.map((cell, i) => this.createCell(cell, i))}
+          {/* Draw neon winning line when there's a winner */}
+          {winner && this.state.winningLine && (() => {
+            const line = this.state.winningLine!;
+            const cellSize = 110, gap = 2, padding = 12;
+            const step = cellSize + gap;
+            const getCenter = (idx: number) => ({
+              x: padding + (idx % 3) * step + cellSize / 2,
+              y: padding + Math.floor(idx / 3) * step + cellSize / 2,
+            });
+            const start = getCenter(line[0]);
+            const end = getCenter(line[line.length - 1]);
+            const boardSize = 2 * padding + 3 * cellSize + 2 * gap;
+            const winColor = winner === 'X' ? '#4d9fff' : '#ff4d4d';
+            return (
+              <svg
+                style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}
+                width={boardSize} height={boardSize}
+              >
+                <defs>
+                  <filter id="neon-glow">
+                    <feGaussianBlur stdDeviation="5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                {/* Outer glow layer */}
+                <line
+                  x1={start.x} y1={start.y} x2={end.x} y2={end.y}
+                  stroke={winColor} strokeWidth="14" strokeLinecap="round"
+                  strokeOpacity="0.3"
+                />
+                {/* Main neon line */}
+                <line
+                  x1={start.x} y1={start.y} x2={end.x} y2={end.y}
+                  stroke={winColor} strokeWidth="5" strokeLinecap="round"
+                  filter="url(#neon-glow)"
+                  style={{ animation: 'winLine 0.4s ease-out' }}
+                />
+              </svg>
+            );
+          })()}
+        </div>
+
+        {/* Controls */}
         <div id="bottombar">
-          <button onClick={/* get the function, not call the function */this.newGame}>New Game</button>
-          {/* Exercise: implement Undo function */}
-          <button>Undo</button>
+          <button onClick={this.newGame}>Эхлэх</button>
+          <button onClick={this.undo}>Буцах</button>
         </div>
       </div>
     );

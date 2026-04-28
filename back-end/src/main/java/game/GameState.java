@@ -3,16 +3,28 @@ package game;
 import java.util.Arrays;
 
 public class GameState {
-
     private final Cell[] cells;
+    private final String winner;
+    private final String turn;
+    private final boolean draw;
+    private final int[] winningLine;
 
-    private GameState(Cell[] cells) {
+    private GameState(Cell[] cells, String winner, String turn, boolean draw, int[] winningLine) {
         this.cells = cells;
+        this.winner = winner;
+        this.turn = turn;
+        this.draw = draw;
+        this.winningLine = winningLine;
     }
 
     public static GameState forGame(Game game) {
         Cell[] cells = getCells(game);
-        return new GameState(cells);
+        Player w = game.getWinner();
+        String winner = w == null ? null : (w == Player.PLAYER0 ? "X" : "O");
+        boolean draw = game.isDraw();
+        String turn = (w != null || draw) ? null : (game.getPlayer() == Player.PLAYER0 ? "X" : "O");
+        int[] winningLine = game.getWinningLine();
+        return new GameState(cells, winner, turn, draw, winningLine);
     }
 
     public Cell[] getCells() {
@@ -25,9 +37,17 @@ public class GameState {
      */
     @Override
     public String toString() {
+        String winLineJson = this.winningLine == null ? "null"
+            : "[" + this.winningLine[0] + "," + this.winningLine[1] + "," + this.winningLine[2] + "]";
         return """
-                { "cells": %s}
-                """.formatted(Arrays.toString(this.cells));
+                { "cells": %s, "winner": %s, "turn": %s, "draw": %b, "winningLine": %s}
+                """.formatted(
+                Arrays.toString(this.cells),
+                this.winner == null ? "null" : "\"" + this.winner + "\"",
+                this.turn == null ? "null" : "\"" + this.turn + "\"",
+                this.draw,
+                winLineJson
+        );
     }
 
     private static Cell[] getCells(Game game) {

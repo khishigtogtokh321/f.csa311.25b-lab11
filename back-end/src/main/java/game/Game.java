@@ -68,4 +68,47 @@ public class Game {
             return board.getCell(1, 1);
         return null;
     }
+
+    /**
+     * Returns the indices (in the flat cell array) of the 3 winning cells,
+     * or null if there is no winner yet.
+     * Index formula: 3 * y + x
+     */
+    public int[] getWinningLine() {
+        // Check columns: x fixed (row), y varies 0-2  → indices: row, row+3, row+6
+        for (int row = 0; row < 3; row++)
+            if (board.getCell(row, 0) != null && board.getCell(row, 0) == board.getCell(row, 1)
+                    && board.getCell(row, 1) == board.getCell(row, 2))
+                return new int[]{row, row + 3, row + 6};
+        // Check rows: y fixed (col), x varies 0-2  → indices: col*3, col*3+1, col*3+2
+        for (int col = 0; col < 3; col++)
+            if (board.getCell(0, col) != null && board.getCell(0, col) == board.getCell(1, col)
+                    && board.getCell(0, col) == board.getCell(2, col))
+                return new int[]{col * 3, col * 3 + 1, col * 3 + 2};
+        // Diagonal top-left → bottom-right: (0,0),(1,1),(2,2) → 0,4,8
+        if (board.getCell(1, 1) != null && board.getCell(0, 0) == board.getCell(1, 1)
+                && board.getCell(1, 1) == board.getCell(2, 2))
+            return new int[]{0, 4, 8};
+        // Diagonal top-right → bottom-left: (0,2),(1,1),(2,0) → 6,4,2
+        if (board.getCell(1, 1) != null && board.getCell(0, 2) == board.getCell(1, 1)
+                && board.getCell(1, 1) == board.getCell(2, 0))
+            return new int[]{6, 4, 2};
+        return null;
+    }
+
+    public Game undo() {
+        if (this.history.isEmpty())
+            return this;
+        return this.history.get(this.history.size() - 1);
+    }
+
+    public boolean isDraw() {
+        if (getWinner() != null) return false;
+        for (int x = 0; x < 3; x++) {
+            for (int y = 0; y < 3; y++) {
+                if (board.getCell(x, y) == null) return false;
+            }
+        }
+        return true;
+    }
 }
